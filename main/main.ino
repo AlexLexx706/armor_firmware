@@ -3,6 +3,9 @@
 #define R_DIR 7
 #define R_PWM 5
 
+#define CH_1 3
+#define CH_2 2
+
 //#define MOTOR_TEST
 #define SERIAL_SPEED 115200
 
@@ -21,46 +24,40 @@ void init_motor() {
   digitalWrite(R_PWM, LOW);
 }
 
-void motor_test() {
-  digitalWrite(L_DIR, LOW);
-  digitalWrite(L_PWM, LOW);
+volatile int ch_1_pwm_value = 0;
+volatile int ch_1_prev_time = 0;
+volatile int ch_2_pwm_value = 0;
+volatile int ch_2_prev_time = 0;
+ 
+void setup_channels() {
+  attachInterrupt(digitalPinToInterrupt(CH_1), rising_ch1, RISING);
+  attachInterrupt(digitalPinToInterrupt(CH_2), rising_ch2, RISING);
+}
 
-  digitalWrite(L_DIR, HIGH);
-  digitalWrite(L_PWM, LOW);
-  delay(3000);                       // wait for a second
+void rising_ch1() {
+  attachInterrupt(digitalPinToInterrupt(CH_1), falling_ch1, FALLING);
+  ch_1_prev_time = micros();
+}
+ 
+void falling_ch1() {
+  attachInterrupt(digitalPinToInterrupt(CH_1), rising_ch1, RISING);
+  ch_1_pwm_value = micros() - ch_1_prev_time;
+}
 
-  digitalWrite(L_DIR, LOW);
-  digitalWrite(L_PWM, LOW);
-  delay(3000);                       // wait for a second
-
-  digitalWrite(L_DIR, LOW);
-  digitalWrite(L_PWM, HIGH);
-  delay(3000);                       // wait for a second
-
-  digitalWrite(L_DIR, LOW);
-  digitalWrite(L_PWM, LOW);
-
-
-  digitalWrite(R_DIR, HIGH);
-  digitalWrite(R_PWM, LOW);
-  delay(3000);                       // wait for a second
-
-  digitalWrite(R_DIR, LOW);
-  digitalWrite(R_PWM, LOW);
-  delay(3000);                       // wait for a second
-
-  digitalWrite(R_DIR, LOW);
-  digitalWrite(R_PWM, HIGH);
-  delay(3000);                       // wait for a second
-
-  digitalWrite(R_DIR, LOW);
-  digitalWrite(R_PWM, LOW);
+void rising_ch2() {
+  attachInterrupt(digitalPinToInterrupt(CH_2), falling_ch2, FALLING);
+  ch_2_prev_time = micros();
+}
+ 
+void falling_ch2() {
+  attachInterrupt(digitalPinToInterrupt(CH_2), rising_ch2, RISING);
+  ch_2_pwm_value = micros() - ch_2_prev_time;
 }
 
 void setup() {
   init_motor();
   Serial.begin(SERIAL_SPEED);
-  
+  setup_channels();
 }
 
 int check_motor_value(int value) {
@@ -155,9 +152,27 @@ void update_motor() {
   }
 }
 
+#define MIN_CH_1 1012
+#define MAX_CH_1 1996
+#define CENTER_CH_1 1504
+
+#define MIN_CH_2 992
+#define MAX_CH_2 1988
+#define CENTER_CH_2 1492
+
+
+void process_receiver_data() {
+  int ch_1_motor = ((ch_1_pwm_value - MIN_CH_1)/float(MAX_CH_1 - MIN_CH_1) * 2.f - 1.f) * 255;
+  int ch_2_motor = ((ch_2_pwm_value - MIN_CH_2)/float(MAX_CH_2 - MIN_CH_2) * 2.f - 1.f) * 255;
+//  Serial.println(String("ch_1_motor:") + ch_1_motor + "ch_2_motor:" + ch_2_motor);
+  l_motor_value = check_motor_value(ch_1_motor + ch_2_motor);
+  r_motor_value = check_motor_value(ch_1_motor - ch_2_motor);
+}
 
 void loop() {
   process_serial();
+  process_receiver_data();
   update_motor();  
-  Serial.println(String("l:") + l_motor_value + " r:" + r_motor_value);
+//  Serial.println(String("l:") + l_motor_value + " r:" + r_motor_value);
+//  Serial.println(String("val:") + ch_1_pwm_value + " val_2:" + ch_2_pwm_value);
 }
