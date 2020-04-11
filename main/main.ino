@@ -9,7 +9,7 @@
 static int l_motor_value = 0;
 static int r_motor_value = 0;
 
-void init_motor_test() {
+void init_motor() {
   pinMode(L_DIR, OUTPUT);
   pinMode(L_PWM, OUTPUT);
   pinMode(R_DIR, OUTPUT);
@@ -58,11 +58,16 @@ void motor_test() {
 }
 
 void setup() {
-  #ifdef MOTOR_TEST
-    init_motor_test();
-  #endif
+  init_motor();
   Serial.begin(SERIAL_SPEED);
   
+}
+
+int check_motor_value(int value) {
+  if (value >= 0){
+    return value > 255 ? 255: value;
+  }
+  return value < -255 ? -255: value;
 }
 
 void process_serial() {
@@ -108,9 +113,9 @@ void process_serial() {
           if (string.length()) {
             int value = string.toInt();
             if (!motor) {
-              l_motor_value = value;
+              l_motor_value = check_motor_value(value);
             } else {
-              r_motor_value = value;
+              r_motor_value = check_motor_value(value);
             }
 //            Serial.println(String("Motor:") + motor + " value:" + value);
           }
@@ -124,10 +129,35 @@ void process_serial() {
   }
 }
 
+void update_motor() {
+  //left motor
+  if (l_motor_value == 0) {
+    digitalWrite(L_DIR, LOW);
+    digitalWrite(L_PWM, LOW);
+  } else if (l_motor_value > 0) {
+    digitalWrite(L_DIR, LOW);
+    analogWrite(L_PWM, l_motor_value);
+  } else {
+    digitalWrite(L_DIR, HIGH);
+    analogWrite(L_PWM, 255 + l_motor_value);
+  }
+
+  //right motor
+  if (r_motor_value == 0) {
+    digitalWrite(R_DIR, LOW);
+    digitalWrite(R_PWM, LOW);
+  } else if (r_motor_value > 0) {
+    digitalWrite(R_DIR, LOW);
+    analogWrite(R_PWM, r_motor_value);
+  } else {
+    digitalWrite(R_DIR, HIGH);
+    analogWrite(R_PWM, 255 + r_motor_value);
+  }
+}
+
+
 void loop() {
   process_serial();
-  #ifdef MOTOR_TEST
-    motor_test();
-  #endif
+  update_motor();  
   Serial.println(String("l:") + l_motor_value + " r:" + r_motor_value);
 }
