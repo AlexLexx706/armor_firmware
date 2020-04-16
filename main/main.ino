@@ -19,7 +19,7 @@
 #define MAX_CH_2 1988
 #define CENTER_CH_2 1492
 
-#define DEAD_WINDOW 10
+#define DEAD_WINDOW 15
 #define MAX_CH_VALUE 10000
 
 #define BUTTON_STATE_CHANGE_DELEY 10
@@ -197,7 +197,7 @@ void setup_button(){
 }
 
 void button_handler(int state) {
-  Serial.println(String("button state chenged:") + state);
+  // Serial.println(String("state:") + state);
 
   //chenage current programm
   if (state == LOW) {
@@ -224,7 +224,6 @@ void update_button() {
     begin_state = button_state;
     begin_time = millis();
     detection = true;
-    // Serial.println(String("button:") + state);
   }
   button_state = state;
 }
@@ -237,7 +236,9 @@ void setup() {
 }
 
 void process_programm_1() {
-  Serial.println('programm 1.');
+  // Serial.println("p.1");
+  l_motor_value = 100;
+  r_motor_value = -100;
 }
 
 void loop() {
