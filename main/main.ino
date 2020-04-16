@@ -9,7 +9,7 @@
 #define BUTTON_PIN 4
 
 #define SERIAL_SPEED 115200
-#define RECEIVER_TIMEOUT 1500000
+#define RECEIVER_TIMEOUT 200000
 
 #define MIN_CH_1 1012
 #define MAX_CH_1 1996
@@ -19,14 +19,20 @@
 #define MAX_CH_2 1988
 #define CENTER_CH_2 1492
 
+#define DEAD_WINDOW 10
+#define MAX_CH_VALUE 10000
+
+#define BUTTON_STATE_CHANGE_DELEY 10
+
 static int l_motor_value = 0;
 static int r_motor_value = 0;
 
-volatile int ch_1_pwm_value = 0;
-volatile int ch_1_prev_time = 0;
-volatile int ch_2_pwm_value = 0;
-volatile int ch_2_prev_time = 0;
+volatile unsigned long ch_1_pwm_value = 0;
+volatile unsigned long ch_1_prev_time = 0;
+volatile unsigned long ch_2_pwm_value = 0;
+volatile unsigned long ch_2_prev_time = 0;
 
+static int current_programm = 0;
 void init_motor() {
   pinMode(L_DIR, OUTPUT);
   pinMode(L_PWM, OUTPUT);
@@ -133,6 +139,9 @@ void process_serial() {
 
 void update_motor() {
   //left motor
+  // Serial.println('l_motor_value:' + l_motor_value);
+  // Serial.println('r_motor_value:' + l_motor_value);
+
   if (l_motor_value == 0) {
     digitalWrite(L_DIR, LOW);
     digitalWrite(L_PWM, LOW);
@@ -158,16 +167,26 @@ void update_motor() {
 }
 
 void process_receiver_data() {
-  int cur_time = micros();
+  unsigned long cur_time = micros();
 
   // receiver timeout
-  if (cur_time - ch_1_prev_time >= RECEIVER_TIMEOUT ||cur_time - ch_2_prev_time >= RECEIVER_TIMEOUT) {
+  unsigned long dt = cur_time - ch_1_prev_time;
+  if (dt >= RECEIVER_TIMEOUT) {
     l_motor_value = 0;
     r_motor_value = 0;
   // update motor value
-  } else {
+  } else if (ch_1_pwm_value < MAX_CH_VALUE and ch_2_pwm_value < MAX_CH_VALUE)  {
+
     int ch_1_motor = ((ch_1_pwm_value - MIN_CH_1)/float(MAX_CH_1 - MIN_CH_1) * 2.f - 1.f) * 255;
     int ch_2_motor = ((ch_2_pwm_value - MIN_CH_2)/float(MAX_CH_2 - MIN_CH_2) * 2.f - 1.f) * 255;
+    if (abs(ch_1_motor) < DEAD_WINDOW) {
+      ch_1_motor = 0;
+    }
+    if (abs(ch_2_motor) < DEAD_WINDOW) {
+      ch_2_motor = 0;
+    }
+    // Serial.println(String("ch1:") + ch__pwm_value);
+    // Serial.println(String("ch_1_motor:") + ch_1_motor + " ch_2_motor:" + ch_2_motor);
     l_motor_value = check_motor_value(ch_1_motor + ch_2_motor);
     r_motor_value = check_motor_value(ch_1_motor - ch_2_motor);
   }
@@ -177,12 +196,35 @@ void setup_button(){
   pinMode(BUTTON_PIN, INPUT);
 }
 
+void button_handler(int state) {
+  Serial.println(String("button state chenged:") + state);
+
+  //chenage current programm
+  if (state == LOW) {
+    current_programm = (current_programm + 1) % 2;
+  }
+}
+
 void update_button() {
   static int button_state = LOW;
+  static unsigned long begin_time;
+  static int begin_state;
+  static bool detection = false;
   int state = digitalRead(BUTTON_PIN);
 
-  if (button_state != state) {
-    Serial.println(String("button:") + state);
+  // detection in progress
+  if (detection) {
+    if (millis() - begin_time >= BUTTON_STATE_CHANGE_DELEY) {
+      detection = false;
+      if (begin_state != state) {
+        button_handler(state);
+      }
+    }
+  } else if (button_state != state) {
+    begin_state = button_state;
+    begin_time = millis();
+    detection = true;
+    // Serial.println(String("button:") + state);
   }
   button_state = state;
 }
@@ -194,9 +236,19 @@ void setup() {
   setup_button();
 }
 
+void process_programm_1() {
+  Serial.println('programm 1.');
+}
+
 void loop() {
   process_serial();
-  process_receiver_data();
+
+  // no programm
+  if (current_programm == 0) {
+    process_receiver_data();
+  } else if (current_programm == 1) {
+    process_programm_1();
+  }
   update_button();
   update_motor();  
 //  Serial.println(String("l:") + l_motor_value + " r:" + r_motor_value);
