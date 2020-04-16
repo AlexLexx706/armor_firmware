@@ -9,6 +9,7 @@
 #define BUTTON_PIN 4
 
 #define SERIAL_SPEED 115200
+#define RECEIVER_TIMEOUT 1500000
 
 #define MIN_CH_1 1012
 #define MAX_CH_1 1996
@@ -157,11 +158,19 @@ void update_motor() {
 }
 
 void process_receiver_data() {
-  int ch_1_motor = ((ch_1_pwm_value - MIN_CH_1)/float(MAX_CH_1 - MIN_CH_1) * 2.f - 1.f) * 255;
-  int ch_2_motor = ((ch_2_pwm_value - MIN_CH_2)/float(MAX_CH_2 - MIN_CH_2) * 2.f - 1.f) * 255;
-//  Serial.println(String("ch_1_motor:") + ch_1_motor + "ch_2_motor:" + ch_2_motor);
-  l_motor_value = check_motor_value(ch_1_motor + ch_2_motor);
-  r_motor_value = check_motor_value(ch_1_motor - ch_2_motor);
+  int cur_time = micros();
+
+  // receiver timeout
+  if (cur_time - ch_1_prev_time >= RECEIVER_TIMEOUT ||cur_time - ch_2_prev_time >= RECEIVER_TIMEOUT) {
+    l_motor_value = 0;
+    r_motor_value = 0;
+  // update motor value
+  } else {
+    int ch_1_motor = ((ch_1_pwm_value - MIN_CH_1)/float(MAX_CH_1 - MIN_CH_1) * 2.f - 1.f) * 255;
+    int ch_2_motor = ((ch_2_pwm_value - MIN_CH_2)/float(MAX_CH_2 - MIN_CH_2) * 2.f - 1.f) * 255;
+    l_motor_value = check_motor_value(ch_1_motor + ch_2_motor);
+    r_motor_value = check_motor_value(ch_1_motor - ch_2_motor);
+  }
 }
 
 void setup_button(){
