@@ -6,11 +6,25 @@
 #define CH_1 3
 #define CH_2 2
 
-//#define MOTOR_TEST
+#define BUTTON_PIN 4
+
 #define SERIAL_SPEED 115200
+
+#define MIN_CH_1 1012
+#define MAX_CH_1 1996
+#define CENTER_CH_1 1504
+
+#define MIN_CH_2 992
+#define MAX_CH_2 1988
+#define CENTER_CH_2 1492
 
 static int l_motor_value = 0;
 static int r_motor_value = 0;
+
+volatile int ch_1_pwm_value = 0;
+volatile int ch_1_prev_time = 0;
+volatile int ch_2_pwm_value = 0;
+volatile int ch_2_prev_time = 0;
 
 void init_motor() {
   pinMode(L_DIR, OUTPUT);
@@ -24,11 +38,6 @@ void init_motor() {
   digitalWrite(R_PWM, LOW);
 }
 
-volatile int ch_1_pwm_value = 0;
-volatile int ch_1_prev_time = 0;
-volatile int ch_2_pwm_value = 0;
-volatile int ch_2_prev_time = 0;
- 
 void setup_channels() {
   attachInterrupt(digitalPinToInterrupt(CH_1), rising_ch1, RISING);
   attachInterrupt(digitalPinToInterrupt(CH_2), rising_ch2, RISING);
@@ -54,11 +63,6 @@ void falling_ch2() {
   ch_2_pwm_value = micros() - ch_2_prev_time;
 }
 
-void setup() {
-  init_motor();
-  Serial.begin(SERIAL_SPEED);
-  setup_channels();
-}
 
 int check_motor_value(int value) {
   if (value >= 0){
@@ -152,15 +156,6 @@ void update_motor() {
   }
 }
 
-#define MIN_CH_1 1012
-#define MAX_CH_1 1996
-#define CENTER_CH_1 1504
-
-#define MIN_CH_2 992
-#define MAX_CH_2 1988
-#define CENTER_CH_2 1492
-
-
 void process_receiver_data() {
   int ch_1_motor = ((ch_1_pwm_value - MIN_CH_1)/float(MAX_CH_1 - MIN_CH_1) * 2.f - 1.f) * 255;
   int ch_2_motor = ((ch_2_pwm_value - MIN_CH_2)/float(MAX_CH_2 - MIN_CH_2) * 2.f - 1.f) * 255;
@@ -169,9 +164,31 @@ void process_receiver_data() {
   r_motor_value = check_motor_value(ch_1_motor - ch_2_motor);
 }
 
+void setup_button(){
+  pinMode(BUTTON_PIN, INPUT);
+}
+
+void update_button() {
+  static int button_state = LOW;
+  int state = digitalRead(BUTTON_PIN);
+
+  if (button_state != state) {
+    Serial.println(String("button:") + state);
+  }
+  button_state = state;
+}
+
+void setup() {
+  init_motor();
+  Serial.begin(SERIAL_SPEED);
+  setup_channels();
+  setup_button();
+}
+
 void loop() {
   process_serial();
   process_receiver_data();
+  update_button();
   update_motor();  
 //  Serial.println(String("l:") + l_motor_value + " r:" + r_motor_value);
 //  Serial.println(String("val:") + ch_1_pwm_value + " val_2:" + ch_2_pwm_value);
