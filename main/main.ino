@@ -9,7 +9,7 @@
 #define BUTTON_PIN 4
 
 #define SERIAL_SPEED 115200
-#define RECEIVER_TIMEOUT 200000
+#define RECEIVER_TIMEOUT 20000
 
 #define MIN_CH_1 1012
 #define MAX_CH_1 1996
@@ -20,6 +20,8 @@
 #define CENTER_CH_2 1492
 
 #define DEAD_WINDOW 15
+
+#define MIN_CH_VALUE 1000
 #define MAX_CH_VALUE 2000
 
 #define BUTTON_STATE_CHANGE_DELEY 10
@@ -35,6 +37,9 @@ volatile unsigned long ch_1_pwm_value = 0;
 volatile unsigned long ch_1_prev_time = 0;
 volatile unsigned long ch_2_pwm_value = 0;
 volatile unsigned long ch_2_prev_time = 0;
+volatile bool ch_1_valid = false;
+volatile bool ch_2_valid = false;
+
 
 static int current_programm = 0;
 void init_motor() {
@@ -62,6 +67,7 @@ void rising_ch1() {
 void falling_ch1() {
   attachInterrupt(digitalPinToInterrupt(CH_1), rising_ch1, RISING);
   ch_1_pwm_value = micros() - ch_1_prev_time;
+  ch_1_valid = ch_1_pwm_value > MIN_CH_VALUE && ch_1_pwm_value < MAX_CH_VALUE;
 }
 
 void rising_ch2() {
@@ -72,6 +78,7 @@ void rising_ch2() {
 void falling_ch2() {
   attachInterrupt(digitalPinToInterrupt(CH_2), rising_ch2, RISING);
   ch_2_pwm_value = micros() - ch_2_prev_time;
+  ch_2_valid = ch_2_pwm_value > MIN_CH_VALUE && ch_2_pwm_value < MAX_CH_VALUE;
 }
 
 
@@ -175,11 +182,15 @@ void process_receiver_data() {
   // receiver timeout
   unsigned long dt = cur_time - ch_1_prev_time;
 
+  Serial.println(String("1:") + ch_1_valid + " 2:" + ch_2_valid);
+
   if (dt >= RECEIVER_TIMEOUT) {
     l_motor_value = 0;
     r_motor_value = 0;
+    ch_1_valid = false;
+    ch_2_valid = false;
   // update motor value
-  } else if (ch_1_pwm_value < MAX_CH_VALUE and ch_2_pwm_value < MAX_CH_VALUE)  {
+  } else if (ch_1_valid && ch_2_valid)  {
 
     //x channel
     int ch_1_motor = ((ch_1_pwm_value - MIN_CH_1)/float(MAX_CH_1 - MIN_CH_1) * 2.f - 1.f) * X_SCALE;
