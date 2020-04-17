@@ -20,9 +20,13 @@
 #define CENTER_CH_2 1492
 
 #define DEAD_WINDOW 15
-#define MAX_CH_VALUE 10000
+#define MAX_CH_VALUE 2000
 
 #define BUTTON_STATE_CHANGE_DELEY 10
+
+#define X_SCALE 150
+#define Y_SCALE 250
+
 
 static int l_motor_value = 0;
 static int r_motor_value = 0;
@@ -168,27 +172,29 @@ void update_motor() {
 
 void process_receiver_data() {
   unsigned long cur_time = micros();
-
   // receiver timeout
   unsigned long dt = cur_time - ch_1_prev_time;
+
   if (dt >= RECEIVER_TIMEOUT) {
     l_motor_value = 0;
     r_motor_value = 0;
   // update motor value
   } else if (ch_1_pwm_value < MAX_CH_VALUE and ch_2_pwm_value < MAX_CH_VALUE)  {
 
-    int ch_1_motor = ((ch_1_pwm_value - MIN_CH_1)/float(MAX_CH_1 - MIN_CH_1) * 2.f - 1.f) * 255;
-    int ch_2_motor = ((ch_2_pwm_value - MIN_CH_2)/float(MAX_CH_2 - MIN_CH_2) * 2.f - 1.f) * 255;
+    //x channel
+    int ch_1_motor = ((ch_1_pwm_value - MIN_CH_1)/float(MAX_CH_1 - MIN_CH_1) * 2.f - 1.f) * X_SCALE;
+    //y channel
+    int ch_2_motor = ((ch_2_pwm_value - MIN_CH_2)/float(MAX_CH_2 - MIN_CH_2) * 2.f - 1.f) * Y_SCALE;
+
     if (abs(ch_1_motor) < DEAD_WINDOW) {
       ch_1_motor = 0;
     }
     if (abs(ch_2_motor) < DEAD_WINDOW) {
       ch_2_motor = 0;
     }
-    // Serial.println(String("ch1:") + ch__pwm_value);
-    // Serial.println(String("ch_1_motor:") + ch_1_motor + " ch_2_motor:" + ch_2_motor);
-    l_motor_value = check_motor_value(ch_1_motor + ch_2_motor);
-    r_motor_value = check_motor_value(ch_1_motor - ch_2_motor);
+    // Serial.println(String("1:") + ch_1_motor + " 2:" + ch_2_motor);
+    l_motor_value = check_motor_value(ch_2_motor + ch_1_motor);
+    r_motor_value = check_motor_value(ch_2_motor - ch_1_motor);
   }
 }
 
@@ -237,17 +243,17 @@ void setup() {
 
 void process_programm_1() {
   // Serial.println("p.1");
-  l_motor_value = 100;
-  r_motor_value = -100;
+  l_motor_value = 0;
+  r_motor_value = 0;
 }
 
 void loop() {
   process_serial();
 
   // no programm
-  if (current_programm == 0) {
-    process_receiver_data();
-  } else if (current_programm == 1) {
+  process_receiver_data();
+
+  if (current_programm == 1) {
     process_programm_1();
   }
   update_button();
